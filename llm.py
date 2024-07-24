@@ -8,11 +8,11 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # 環境変数が設定されていない場合のデフォルト値を設定
-API_KEY = os.getenv('API_KEY', 'your_openai_api_key')
-if not API_KEY:
-    raise ValueError("API_KEY is not set")
+OPENAI_API_KEY = os.getenv('OPENAI_API_KEY', 'your_openai_api_key')
+if not OPENAI_API_KEY:
+    raise ValueError("OPENAI_API_KEY is not set")
 
-os.environ['OPENAI_API_KEY'] = API_KEY
+os.environ['OPENAI_API_KEY'] = OPENAI_API_KEY
 
 class LLMAgent:
     def __init__(self):
