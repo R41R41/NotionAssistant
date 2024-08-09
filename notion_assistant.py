@@ -2,7 +2,7 @@ import os
 import time
 import asyncio
 import json
-from notion import NotionAgent
+from notion_agent import NotionAgent
 from llm import LLMAgent
 from dotenv import load_dotenv
 
