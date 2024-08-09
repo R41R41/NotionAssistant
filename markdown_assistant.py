@@ -3,7 +3,7 @@ import time
 import asyncio
 import json
 from markdown_agent import MarkdownAgent
-from llm import LLMAgent
+from llm_agent import LLMAgent
 from dotenv import load_dotenv
 import pytz
 from datetime import datetime
@@ -19,7 +19,7 @@ prompt_file_path = './test/test_prompt.txt'
 md_file_path = './test/page_content.md'
 diff_file_path = './test/page_content_diff.md'
 
-auto_mode = False
+auto_mode = True
 
 
 class MarkdownAssistant:
@@ -48,6 +48,7 @@ class MarkdownAssistant:
         llm_response = await self.llm_agent(system_message=self.prompt, human_message=self.diff_content)
         # コメントを追加
         comments = json.loads(llm_response)
+        self.markdown_agent.clear_ai_feedback()
         for comment in comments:
             print(comment['position'], comment['comment'])
             self.markdown_agent.add_text_to_markdown(
@@ -92,7 +93,7 @@ class MarkdownAssistant:
                 # 変化があった場合、更新時間を記録
                 self.previous_md_content = markdown_content
                 self.last_update_time = time.time()
-            elif not self.auto_mode and self.is_updated and time.time() - self.last_update_time >= 3:
+            elif not self.auto_mode and self.is_updated and time.time() - self.last_update_time >= 1:
                 if self.contains_unmarked_user_input(markdown_content):
                     self.diff_content = self.markdown_agent.get_diff_to_file(
                         self.saved_md_content, markdown_content)
@@ -103,8 +104,8 @@ class MarkdownAssistant:
                         self.diff_content, self.diff_file_path)
                     self.saved_md_content = markdown_content
                     self.is_updated = False
-            elif self.auto_mode and self.is_updated and time.time() - self.last_update_time >= 3:
-                # 3秒間変化がなかった場合、保存してLLMに送信
+            elif self.auto_mode and self.is_updated and time.time() - self.last_update_time >= 1:
+                # 1秒間変化がなかった場合、保存してLLMに送信
                 self.diff_content = self.markdown_agent.get_diff_to_file(
                     self.saved_md_content, markdown_content)
                 self.saved_md_content = markdown_content

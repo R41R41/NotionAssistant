@@ -8,11 +8,25 @@ class MarkdownAgent:
     def get_file_content(self, md_file_path):
         if md_file_path:
             # ページのメタデータを取得
-            with open(md_file_path, 'r') as file:
+            with open(md_file_path, 'r', encoding='utf-8') as file:
                 markdown_content = file.read()
             return markdown_content
         else:
             return None
+
+    def clear_ai_feedback(self):
+        with open(self.md_file_path, 'r', encoding='utf-8') as file:
+            lines = file.readlines()
+
+        for i, line in enumerate(lines):
+            if line.startswith('<!--'):
+                while not lines[i].strip().endswith('-->'):
+                    lines[i] = ''
+                    i += 1
+                lines[i] = ''
+
+        with open(self.md_file_path, 'w', encoding='utf-8') as file:
+            file.writelines(lines)
 
     def add_text_to_markdown(self, position, text):
         with open(self.md_file_path, 'r', encoding='utf-8') as file:
