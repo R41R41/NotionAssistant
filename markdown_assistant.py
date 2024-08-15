@@ -19,13 +19,12 @@ prompt_file_path = './test/prompt.txt'
 md_file_path = './test/page_content.md'
 diff_file_path = './test/page_content_diff.md'
 
-auto_mode = True
-
 
 class MarkdownAssistant:
-    def __init__(self, openai_api_key, prompt_file_path, md_file_path, diff_file_path, auto_mode=True):
+    def __init__(self, openai_api_key, input_md_file_path, prompt_file_path, md_file_path, diff_file_path, auto_mode=True):
         self.markdown_agent = MarkdownAgent(md_file_path=md_file_path)
         self.llm_agent = LLMAgent()
+        self.input_md_file_path = input_md_file_path
         self.prompt_file_path = prompt_file_path
         self.md_file_path = md_file_path
         self.diff_file_path = diff_file_path
@@ -49,12 +48,10 @@ class MarkdownAssistant:
         # コメントを追加
         comments = json.loads(llm_response)
         self.markdown_agent.clear_ai_feedback()
-        for comment in comments:
-            print(comment['position'], comment['comment'])
-            self.markdown_agent.add_text_to_markdown(
-                comment['position'], comment['comment'])
-        self.previous_md_content = self.markdown_agent.get_file_content(
-            md_file_path=self.md_file_path)
+        print(f"コメント: {comments}")
+        self.new_md_content = self.markdown_agent.get_content_with_ai_feedback(
+            self.present_md_content, comments)
+        self.save_to_file(self.new_md_content, self.input_md_file_path)
         tokyo_time = datetime.fromtimestamp(
             self.last_update_time, tokyo_tz).strftime('%Y-%m-%d %H:%M:%S')
         print(f"ページの中身が保存され、コメントが追加されました。最終更新日時: {tokyo_time} (東京の時間)")
@@ -70,9 +67,12 @@ class MarkdownAssistant:
         return "user:" in markdown_content and "!user:" not in markdown_content
 
     async def run_schedule(self):
-        self.previous_md_content = self.markdown_agent.get_file_content(
-            md_file_path=self.md_file_path)
+        previous_markdown_content = self.markdown_agent.get_file_content(
+            md_file_path=self.input_md_file_path)
+        self.previous_md_content = self.markdown_agent.get_content_without_ai_feedback(
+            previous_markdown_content)
         self.saved_md_content = self.previous_md_content
+        self.save_to_file(self.previous_md_content, self.md_file_path)
         self.is_updated = False
         self.last_update_time = time.time()
         print(f"ページ更新検知開始 自動モード:{self.auto_mode}")
@@ -83,40 +83,33 @@ class MarkdownAssistant:
     async def fetch_and_save_content(self):
         try:
             markdown_content = self.markdown_agent.get_file_content(
-                md_file_path=self.md_file_path)
-            if not markdown_content:
+                md_file_path=self.input_md_file_path)
+            self.present_md_content = self.markdown_agent.get_content_without_ai_feedback(
+                markdown_content)
+            if not self.present_md_content:
                 print("ページが見つかりませんでした。")
                 return
-            if markdown_content != self.previous_md_content:
+            if self.present_md_content != self.previous_md_content:
                 print("ページが更新されました。")
                 self.is_updated = True
                 # 変化があった場合、更新時間を記録
-                self.previous_md_content = markdown_content
+                self.previous_md_content = self.present_md_content
                 self.last_update_time = time.time()
-            elif not self.auto_mode and self.is_updated and time.time() - self.last_update_time >= 1:
-                if self.contains_unmarked_user_input(markdown_content):
-                    self.diff_content = self.markdown_agent.get_diff_to_file(
-                        self.saved_md_content, markdown_content)
-                    await self.assist_markdown()
-                    markdown_content = self.remove_user_input(
-                        markdown_content)
-                    self.save_to_file(
-                        self.diff_content, self.diff_file_path)
-                    self.saved_md_content = markdown_content
-                    self.is_updated = False
             elif self.auto_mode and self.is_updated and time.time() - self.last_update_time >= 1:
                 # 1秒間変化がなかった場合、保存してLLMに送信
                 self.diff_content = self.markdown_agent.get_diff_to_file(
-                    self.saved_md_content, markdown_content)
-                self.saved_md_content = markdown_content
+                    self.saved_md_content, self.present_md_content)
+                self.saved_md_content = self.present_md_content
                 await self.assist_markdown()
                 self.save_to_file(self.diff_content, self.diff_file_path)
                 self.is_updated = False
         except Exception as e:
             print(e)
 
+auto_mode = True
+input_md_file_path = './test/input_and_output_content.md'
 
 # 非同期関数を実行するためのエントリーポイント
 markdown_assistant = MarkdownAssistant(
-    OPENAI_API_KEY, prompt_file_path, md_file_path, diff_file_path, auto_mode)
+    OPENAI_API_KEY, input_md_file_path, prompt_file_path, md_file_path, diff_file_path, auto_mode)
 asyncio.run(markdown_assistant.run_schedule())
