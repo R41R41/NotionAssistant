@@ -5,7 +5,7 @@ from langchain_core.messages import HumanMessage
 
 class LLMAgent:
     def __init__(self):
-        self.llm = ChatOpenAI(model='gpt-4o-mini')
+        self.llm = ChatOpenAI(model='gpt-4o')
 
     def render_system_message(self, content):
         system_message = SystemMessage(content=content)

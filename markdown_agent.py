@@ -14,16 +14,43 @@ class MarkdownAgent:
         else:
             return None
 
+    def get_content_without_ai_feedback(self, markdown_content):
+        lines = markdown_content.splitlines()
+        filtered_lines = []
+        i = 0
+        while i < len(lines):
+            if lines[i].startswith('`'):
+                while i < len(lines) and not lines[i].strip().endswith('`'):
+                    i += 1
+                i += 1
+            elif lines[i].strip():
+                filtered_lines.append(lines[i])
+                i += 1
+            else:
+                i += 1
+        return '\n'.join(filtered_lines)
+
+    def get_content_with_ai_feedback(self, markdown_content, comments):
+        lines = markdown_content.splitlines()
+        for comment in comments:
+            position = comment['position']
+            text = comment['comment']
+            position_found = False
+            for i, line in enumerate(lines):
+                if position in line:
+                    lines.insert(i + 1, f"`{text}`\n")
+                    position_found = True
+                    break
+
+            if not position_found:
+                return f"挿入位置が見つかりませんでした: {position}"
+
+        return '\n'.join(lines)
+
     def clear_ai_feedback(self):
         with open(self.md_file_path, 'r', encoding='utf-8') as file:
             lines = file.readlines()
-
-        for i, line in enumerate(lines):
-            if line.startswith('<!--'):
-                while not lines[i].strip().endswith('-->'):
-                    lines[i] = ''
-                    i += 1
-                lines[i] = ''
+        lines = self.get_content_without_ai_feedback('\n'.join(lines))
 
         with open(self.md_file_path, 'w', encoding='utf-8') as file:
             file.writelines(lines)
@@ -35,7 +62,7 @@ class MarkdownAgent:
         position_found = False
         for i, line in enumerate(lines):
             if position in line:
-                lines.insert(i + 1, f"<!-- {text} -->\n")
+                lines.insert(i + 1, f"`{text}`\n")
                 position_found = True
                 break
 

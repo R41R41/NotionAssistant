@@ -3,11 +3,7 @@ import time
 import asyncio
 import json
 from notion_agent import NotionAgent
-<<<<<<< HEAD
 from llm_agent import LLMAgent
-=======
-from llm import LLMAgent
->>>>>>> 63c513b599f0aa783fed884e3bde440a51ac5573
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -17,7 +13,7 @@ PAGE_NAME = os.getenv('PAGE_NAME')
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 os.environ['OPENAI_API_KEY'] = OPENAI_API_KEY
 
-prompt_file_path = './test/test_prompt.txt'
+prompt_file_path = './test/prompt.txt'
 md_file_path = './test/page_content.md'
 diff_file_path = './test/page_content_diff.md'
 
