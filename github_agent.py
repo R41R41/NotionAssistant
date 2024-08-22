@@ -13,6 +13,7 @@ class GitHubAgent:
         self.token = GITHUB_TOKEN
         self.owner = GITHUB_OWNER
         self.repo = GITHUB_REPO
+        self.project_name = PROJECT_NAME
         self.headers = {
             'Authorization': f'token {self.token}',
             'Accept': 'application/vnd.github.v3+json'
@@ -20,31 +21,6 @@ class GitHubAgent:
         self.issues_url = f'https://api.github.com/repos/{self.owner}/{self.repo}/issues'
         self.projects_url = f'https://api.github.com/repos/{self.owner}/{self.repo}/projects'
         self.graphql_url = 'https://api.github.com/graphql'
-
-    def get_issue_number_by_title(self, title):
-        response = requests.get(self.issues_url, headers=self.headers)
-        if response.status_code == 200:
-            issues = response.json()
-            for issue in issues:
-                if issue['title'] == title:
-                    return issue['number']
-        else:
-            print(f"Failed to fetch issues: {response.status_code}")
-            print(response.json())
-        return None
-
-    def update_issue_description(self, issue_number, new_description):
-        update_url = f'https://api.github.com/repos/{self.owner}/{self.repo}/issues/{issue_number}'
-        update_data = {'body': new_description}
-        update_response = requests.patch(update_url, headers=self.headers, json=update_data)
-        if update_response.status_code == 200:
-            print("説明が正常に更新されました。")
-            updated_issue = update_response.json()
-            print(f"Issue ID: {updated_issue['id']}")
-            print(f"Issue Body: {updated_issue['body']}")
-        else:
-            print(f"Failed to update issue: {update_response.status_code}")
-            print(update_response.json())
 
     def get_repository_projects(self):
         query = """
@@ -54,6 +30,7 @@ class GitHubAgent:
                     nodes {
                         id
                         title
+                        shortDescription
                     }
                 }
             }
@@ -72,12 +49,20 @@ class GitHubAgent:
             print(f"Failed to fetch projects: {response.status_code}")
             print(response.json())
 
-    def get_project_id(self, project_name):
+    def get_project_short_description(self):
         projects = self.get_repository_projects()
         for project in projects:
-            if project['title'] == project_name:
+            if project['title'] == self.project_name:
+                return project['shortDescription']
+        print(f"Project not found: {self.project_name}")
+        return None
+
+    def get_project_id(self):
+        projects = self.get_repository_projects()
+        for project in projects:
+            if project['title'] == self.project_name:
                 return project['id']
-        print(f"Project not found: {project_name}")
+        print(f"Project not found: {self.project_name}")
         return None
 
     def get_project_items(self, project_id):
@@ -108,6 +93,7 @@ class GitHubAgent:
                                 ... on DraftIssue {
                                     title
                                     body
+                                    updatedAt
                                 }
                             }
                         }
@@ -165,8 +151,51 @@ class GitHubAgent:
             print(response.json())
         return None
 
-    def get_pbi_content(self, project_name, pbi_name):
-        project_id = self.get_project_id(project_name)
+    def get_project_items_updateAt(self):
+        project_id = self.get_project_id()
+        if project_id:
+            items = self.get_project_items(project_id)
+            if items:
+                update_status = []
+                for item in items:
+                    update_status.append({
+                        'id': item['id'],
+                        'title': item['content']['title'],
+                        'updatedAt': item['content']['updatedAt'],
+                        'is_updated': False,
+                        'is_created': False,
+                        'is_deleted': False
+                    })
+                return update_status
+            else:
+                print(f"No items found in project: {self.project_name}")
+                return None
+        else:
+            print(f"Project not found: {self.project_name}")
+            return None
+
+    def get_project_items_body(self):
+        project_id = self.get_project_id()
+        if project_id:
+            items = self.get_project_items(project_id)
+            if items:
+                items_body = []
+                for item in items:
+                    items_body.append({
+                        'id': item['id'],
+                        'title': item['content']['title'],
+                        'body': item['content']['body']
+                    })
+                return items_body
+            else:
+                print(f"No items found in project: {self.project_name}")
+                return None
+        else:
+            print(f"Project not found: {self.project_name}")
+            return None
+
+    def get_pbi_content(self, pbi_name):
+        project_id = self.get_project_id()
         if project_id:
             items = self.get_project_items(project_id)
             for item in items:
@@ -174,7 +203,7 @@ class GitHubAgent:
                     content = item['content']['body']
                     return project_id, content
         else:
-            print(f"Project not found: {project_name}")
+            print(f"Project not found: {self.project_name}")
             return None
 
     def update_draft_issue(self, draft_issue_id, new_title, new_body):
@@ -195,11 +224,6 @@ class GitHubAgent:
             result = response.json()
             if 'errors' in result:
                 print("GraphQL errors:", result['errors'])
-            else:
-                draft_issue = result['data']['updateProjectV2DraftIssue']['draftIssue']
-                print(f"Draft Issue ID: {draft_issue['id']}")
-                print(f"Title: {draft_issue['title']}")
-                print(f"Body: {draft_issue['body']}")
         else:
             print(f"Failed to update draft issue: {response.status_code}")
             print(response.json())
@@ -225,6 +249,9 @@ if __name__ == "__main__":
     # new_title = "test2"
 
     agent = GitHubAgent()
-    pbi_content = agent.get_pbi_content(project_name, "test2")
-    print(pbi_content)
+    id = agent.get_project_id()
+    items = agent.get_project_items(id)
+    print(items)
+    # pbi_content = agent.get_pbi_content(project_name, "ユーザーニーズ調査を実施")
+    # print(pbi_content)
     

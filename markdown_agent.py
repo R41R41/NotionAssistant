@@ -1,9 +1,37 @@
 import difflib
+import os
 
 
 class MarkdownAgent:
-    def __init__(self, md_file_path):
-        self.md_file_path = md_file_path
+    def __init__(self, projects_path, project_name):
+        self.projects_path = projects_path
+        self.project_name = project_name
+        self.project_path = f"{self.projects_path}/{self.project_name}"
+        if not os.path.exists(self.project_path):
+            os.makedirs(self.project_path)
+
+    def delete_project_item(self, id):
+        file_path = f"{self.project_path}/{id}.md"
+        if os.path.exists(file_path):
+            os.remove(file_path)
+
+    def get_saved_content(self, id):
+        file_path = f"{self.project_path}/{id}.md"
+        if os.path.exists(file_path):
+            with open(file_path, 'r', encoding='utf-8') as file:
+                return file.read()
+        else:
+            print(f"ファイルが存在しません: {file_path}")
+            return None
+
+    def save_project_items(self, project_items):
+        for item in project_items:
+            id = item['id']
+            body = self.get_content_without_ai_feedback(item['body'])
+            file_path = f"{self.project_path}/{id}.md"
+
+            with open(file_path, 'w', encoding='utf-8') as file:
+                file.write(body)
 
     def get_file_content(self, md_file_path):
         if md_file_path:
@@ -17,17 +45,9 @@ class MarkdownAgent:
     def get_content_without_ai_feedback(self, markdown_content):
         lines = markdown_content.splitlines()
         filtered_lines = []
-        i = 0
-        while i < len(lines):
-            if lines[i].startswith('`'):
-                while i < len(lines) and not lines[i].strip().endswith('`'):
-                    i += 1
-                i += 1
-            elif lines[i].strip():
-                filtered_lines.append(lines[i])
-                i += 1
-            else:
-                i += 1
+        for line in lines:
+            if not line.strip().startswith('>'):
+                filtered_lines.append(line)
         return '\n'.join(filtered_lines)
 
     def get_content_with_ai_feedback(self, markdown_content, comments):
@@ -38,12 +58,15 @@ class MarkdownAgent:
             position_found = False
             for i, line in enumerate(lines):
                 if position in line:
-                    lines.insert(i + 1, f"`{text}`\n")
+                    text_lines = text.split('\n')
+                    for j, text_line in enumerate(text_lines):
+                        lines.insert(i + 1 + j, f"> {text_line}")
                     position_found = True
                     break
 
             if not position_found:
-                return f"挿入位置が見つかりませんでした: {position}"
+                print(f"挿入位置が見つかりませんでした: {position}")
+                return None
 
         return '\n'.join(lines)
 
@@ -62,17 +85,20 @@ class MarkdownAgent:
         position_found = False
         for i, line in enumerate(lines):
             if position in line:
-                lines.insert(i + 1, f"`{text}`\n")
+                text_lines = text.split('\n')
+                for j, text_line in enumerate(text_lines):
+                    lines.insert(i + 1 + j, f"> {text_line}")
                 position_found = True
                 break
 
         if not position_found:
-            return f"挿入位置が見つかりませんでした: {position}"
+            print(f"挿入位置が見つかりませんでした: {position}")
+            return None
 
         with open(self.md_file_path, 'w', encoding='utf-8') as file:
             file.writelines(lines)
 
-    def get_diff_to_file(self, old_content, new_content):
+    def get_diff_content(self, old_content, new_content):
         diff = difflib.ndiff(
             old_content.splitlines(),
             new_content.splitlines()
